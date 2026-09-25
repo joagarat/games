@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>SUPER RES</title>
+<link rel="icon" href="titulo.jpg">
+<style>
+  html, body { margin: 0; height: 100%; background: #040404; overflow: hidden;
+    font-family: "Open Sans", "Segoe UI", Roboto, Arial, sans-serif; color: #e6e6e6;
+    -webkit-user-select: none; user-select: none; touch-action: none; }
+  #stage { position: absolute; left: 0; top: 0; width: 720px; height: 1280px;
+    transform-origin: 0 0; background: #040404; }
+  canvas { position: absolute; left: 0; top: 0; width: 720px; height: 1280px; }
+  .layer { position: absolute; left: 0; top: 0; width: 720px; height: 1280px; pointer-events: none; }
+  .layer.hidden, .hidden { display: none !important; }
+  .layer > * { pointer-events: auto; }
+  .lbl { position: absolute; left: 0; width: 720px; text-align: center; font-size: 30px; pointer-events: none; }
+  button.g { position: absolute; left: 50%; transform: translateX(-50%); font: inherit; font-size: 30px;
+    color: #e6e6e6; background: rgba(30,30,33,.85); border: 2px solid #3a3a40; border-radius: 6px;
+    padding: 4px 16px; cursor: pointer; white-space: nowrap; }
+  button.g:hover { background: #3a3a42; }
+  button.g:active { background: #151517; }
+  button.g.sel { border-color: #6fcf3a; color: #b8f28c; }
+  input.g { position: absolute; left: 50%; transform: translateX(-50%); width: 320px; font: inherit;
+    font-size: 30px; text-align: center; color: #eee; background: #1b1b1e; border: 2px solid #3a3a40;
+    border-radius: 6px; padding: 2px 8px; outline: none; user-select: text; -webkit-user-select: text; }
+  input.g:focus { border-color: #6fcf3a; }
+  #info { font-size: 21px; line-height: 1.35; }
+  #scoreLbl { font-size: 40px; text-transform: uppercase; }
+  #board { position: absolute; left: 110px; width: 500px; top: 470px; font-size: 28px; }
+  #board h2 { font-size: 30px; text-align: center; margin: 0 0 14px; font-weight: 600; }
+  #board ol { margin: 0; padding: 0; list-style: none; }
+  #board li { display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid #222; }
+  #board li.me { color: #b8f28c; }
+  #board .empty { text-align: center; color: #888; }
+  #music { position: absolute; right: 10px; bottom: 10px; left: auto; transform: none; font-size: 18px; padding: 4px 10px; opacity: .7; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv" width="720" height="1280"></canvas>
+
+  <!-- Menú: pantalla + dificultad -->
+  <div id="menu" class="layer">
+    <div class="lbl" style="top:525px">Seleccionar Pantalla</div>
+    <button class="g sel" id="bIIBCE" style="top:575px">IIBCE Nanorulers</button>
+    <button class="g" id="bPoro" style="top:635px">Poro Nuclear</button>
+    <div class="lbl" style="top:725px">Seleccionar Dificultad</div>
+    <button class="g" id="bMedio" style="top:775px" data-speed="0.8" data-diff="Medio">Medio</button>
+    <button class="g" id="bDificil" style="top:835px" data-speed="0.5" data-diff="Difícil">Difícil</button>
+    <button class="g" id="bDr" style="top:895px" data-speed="0.25" data-diff="Dr. Localizador">Dr. Localizador</button>
+    <button class="g hidden" id="bStart" style="top:985px">Empezar a Localizar</button>
+  </div>
+
+  <!-- Pantalla informativa -->
+  <div id="infoScreen" class="layer hidden">
+    <div class="lbl" id="info" style="top:865px">Esta estructura no puede ser resuelta con Microscopía Convencional,<br>Analícela por DNA-PAINT e Identifique el centro de cada localización</div>
+    <button class="g" id="bBlink" style="top:975px; font-size:21px">Comenzar Blinking</button>
+  </div>
+
+  <!-- Fin del juego -->
+  <div id="endScreen" class="layer hidden">
+    <button class="g" id="bRestart" style="top:450px">Volver a Empezar</button>
+    <div class="lbl" style="top:810px">Ingrese su Nombre</div>
+    <input class="g" id="nameIn" style="top:860px" maxlength="20" autocomplete="off">
+    <button class="g" id="bSubmit" style="top:915px">Enviar</button>
+    <div class="lbl" id="scoreLbl" style="top:990px"></div>
+  </div>
+
+  <!-- Tabla de puntajes -->
+  <div id="boardScreen" class="layer hidden">
+    <div id="board"></div>
+    <button class="g" id="bRestart2" style="top:1120px">Volver a Empezar</button>
+  </div>
+
+  <button class="g" id="music">Música: sí</button>
+</div>
+
+<audio id="song" src="La-Cumparsita.mp3" loop preload="auto"></audio>
+
+<script>
+(() => {
+  // ---------------- Niveles (coordenadas normalizadas, idénticas a juego.gd) ----------------
+  const LEVELS = {
+    "IIBCE": [
+      [0.13,0.45],[0.13,0.49],[0.13,0.53],[0.13,0.57],[0.13,0.61],
+      [0.23,0.45],[0.23,0.49],[0.23,0.53],[0.23,0.57],[0.23,0.61],
+      [0.33,0.45],[0.33,0.49],[0.33,0.53],[0.33,0.57],[0.33,0.61],
+      [0.37,0.45],[0.37,0.53],[0.37,0.61],
+      [0.41,0.45],[0.41,0.61],
+      [0.41,0.52],[0.41,0.54],
+      [0.43,0.50],[0.43,0.56],
+      [0.44,0.46],[0.44,0.60],
+      [0.45,0.48],[0.45,0.58],
+      [0.53,0.45],[0.53,0.49],[0.53,0.53],[0.53,0.57],[0.53,0.61],
+      [0.57,0.45],[0.57,0.61],
+      [0.61,0.45],[0.61,0.61],[0.65,0.45],[0.65,0.61],
+      [0.75,0.45],[0.75,0.49],[0.75,0.53],[0.75,0.57],[0.75,0.61],
+      [0.79,0.45],[0.79,0.53],[0.79,0.61],
+      [0.83,0.45],[0.83,0.61],[0.87,0.45],[0.87,0.61]
+    ],
+    "Poro Nuclear": [
+      [0.25,0.5],[0.27,0.495],[0.28,0.485],[0.27,0.475],[0.25,0.47],[0.23,0.475],[0.22,0.485],[0.23,0.495],
+      [0.47,0.52],[0.49,0.515],[0.50,0.505],[0.49,0.495],[0.47,0.49],[0.45,0.495],[0.44,0.505],[0.45,0.515],
+      [0.63,0.45],[0.65,0.445],[0.66,0.435],[0.65,0.425],[0.63,0.42],[0.61,0.425],[0.60,0.435],[0.61,0.445],
+      [0.37,0.6],[0.39,0.595],[0.40,0.585],[0.39,0.575],[0.37,0.57],[0.35,0.575],[0.34,0.585],[0.35,0.595],
+      [0.57,0.58],[0.59,0.575],[0.60,0.565],[0.59,0.555],[0.57,0.55],[0.55,0.555],[0.54,0.565],[0.55,0.575]
+    ]
+  };
+  // Duración en "ticks" como en el original (IIBCE 104, Poro Nuclear 82)
+  const TOTAL_TICKS = { "IIBCE": 104, "Poro Nuclear": 82 };
+  // Área de juego (ColorRect del original: 718 x 1278)
+  const RECT = { x: -1, y: 0, w: 718, h: 1278 };
+
+  // ---------------- Estado ----------------
+  const $ = id => document.getElementById(id);
+  const cv = $("cv"), ctx = cv.getContext("2d"), stage = $("stage");
+  const imgTitle = new Image(); imgTitle.src = "titulo.jpg";
+  const imgBlink = new Image(); imgBlink.src = "blinkk.jpg";
+  imgTitle.onload = imgBlink.onload = () => draw();
+
+  let level = "IIBCE", difficulty = null, blinkSpeed = 0.5;
+  let phase = "menu";           // menu | wait | info | game | end | board
+  let points = [], expected = [], touches = [];
+  let idx = 0, stay = 0, stateVisible = true;
+  let sprite = { visible: false, x: 0, y: 0, info: false };
+  let tickTimer = null, gameTimer = null, waitTimer = null;
+  let finalScore = 0, lastEntryId = null;
+
+  // ---------------- Escalado a la ventana ----------------
+  function fit() {
+    const s = Math.min(innerWidth / 720, innerHeight / 1280);
+    stage.style.transform = `translate(${(innerWidth - 720 * s) / 2}px, ${(innerHeight - 1280 * s) / 2}px) scale(${s})`;
+  }
+  addEventListener("resize", fit); fit();
+
+  // ---------------- Dibujo ----------------
+  function draw() {
+    ctx.fillStyle = "#040404";
+    ctx.fillRect(0, 0, 720, 1280);
+
+    if (sprite.visible && imgBlink.complete) {
+      if (sprite.info) {           // pantalla informativa: sprite grande y más brillante
+        const w = imgBlink.width * 8, h = imgBlink.height * 5;
+        ctx.save(); ctx.filter = "brightness(2)";
+        ctx.drawImage(imgBlink, 350 - w / 2, 600 - h / 2, w, h);
+        ctx.restore();
+      } else {
+        ctx.drawImage(imgBlink, sprite.x - imgBlink.width / 2, sprite.y - imgBlink.height / 2);
+      }
+    }
+    if (phase === "end") dots(expected, "#00ff00");
+    if (phase === "game" || phase === "end") dots(touches, "#ff0000");
+
+    if (imgTitle.complete) ctx.drawImage(imgTitle, 0, 0, 720, 402);
+  }
+  function dots(list, color) {
+    ctx.fillStyle = color;
+    for (const p of list) { ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill(); }
+  }
+
+  // ---------------- Menú ----------------
+  const show = (id, on) => $(id).classList.toggle("hidden", !on);
+  function selectLevel(name, btn) {
+    level = name;
+    $("bIIBCE").classList.toggle("sel", btn.id === "bIIBCE");
+    $("bPoro").classList.toggle("sel", btn.id === "bPoro");
+  }
+  $("bIIBCE").onclick = e => selectLevel("IIBCE", e.currentTarget);
+  $("bPoro").onclick = e => selectLevel("Poro Nuclear", e.currentTarget);
+  for (const id of ["bMedio", "bDificil", "bDr"]) {
+    $(id).onclick = e => {
+      const b = e.currentTarget;
+      blinkSpeed = parseFloat(b.dataset.speed);
+      difficulty = b.dataset.diff;
+      for (const o of ["bMedio", "bDificil", "bDr"]) $(o).classList.toggle("sel", o === id);
+      show("bStart", true);
+    };
+  }
+  $("bStart").onclick = () => {
+    show("menu", false); phase = "wait";
+    waitTimer = setTimeout(showInfo, 1000);
+  };
+
+  function showInfo() {
+    phase = "info";
+    sprite = { visible: true, info: true, x: 0, y: 0 };
+    show("infoScreen", true); draw();
+  }
+  $("bBlink").onclick = () => {
+    show("infoScreen", false);
+    sprite = { visible: false, info: false, x: 0, y: 0 };
+    phase = "wait"; draw();
+    waitTimer = setTimeout(startGame, 1000);
+  };
+
+  // ---------------- Juego ----------------
+  function toScreen([x, y]) { return { x: RECT.x + x * RECT.w, y: RECT.y + y * RECT.h }; }
+
+  function startGame() {
+    phase = "game";
+    expected = LEVELS[level].map(toScreen);
+    points = expected.slice();
+    for (let i = points.length - 1; i > 0; i--) {   // mezclar el orden de blinking
+      const j = Math.floor(Math.random() * (i + 1)); [points[i], points[j]] = [points[j], points[i]];
+    }
+    touches = []; idx = 0; stay = 0; stateVisible = true;
+    tickTimer = setInterval(tick, blinkSpeed * 1000);
+    gameTimer = setTimeout(endGame, (TOTAL_TICKS[level] * blinkSpeed + 1) * 1000);
+    draw();
+  }
+
+  // Cada localización: un tick visible, un tick apagada, y pasa a la siguiente
+  function tick() {
+    if (phase !== "game") return;
+    if (idx < points.length) {
+      if (stay === 0) { sprite.x = points[idx].x; sprite.y = points[idx].y; }
+      sprite.visible = stateVisible;
+      stay++;
+      if (stay >= 2) { idx++; stay = 0; stateVisible = true; }
+      else stateVisible = !stateVisible;
+    } else {
+      idx = 0; stay = 0; stateVisible = true;
+    }
+    draw();
+  }
+
+  cv.addEventListener("pointerdown", e => {
+    if (phase !== "game") return;
+    const r = cv.getBoundingClientRect();
+    const p = { x: (e.clientX - r.left) * 720 / r.width, y: (e.clientY - r.top) * 1280 / r.height };
+    if (touches.some(t => t.x === p.x && t.y === p.y)) return;
+    touches.push(p); draw();
+  });
+
+  function calculateScore() {
+    let total = 0;
+    for (const ep of expected) {
+      let min = Infinity;
+      for (const t of touches) min = Math.min(min, Math.hypot(ep.x - t.x, ep.y - t.y));
+      total += min > 0 ? 10 / min : 100;   // (1/distancia)*10, máximo 100 si es exacto
+    }
+    return total;
+  }
+
+  function endGame() {
+    clearInterval(tickTimer); tickTimer = null;
+    phase = "end";
+    sprite.visible = false;
+    finalScore = Math.round(calculateScore() * 100);
+    $("scoreLbl").textContent = "Puntaje final: " + finalScore;
+    $("nameIn").value = "";
+    show("endScreen", true);
+    draw();
+  }
+
+  // ---------------- Ranking mundial (Google Sheets) + respaldo local ----------------
+  // Pegá acá la URL /exec de la aplicación web de Apps Script (ver puntajes_apps_script.gs).
+  // Si queda vacía, los puntajes se guardan solo en este navegador.
+  const SCORES_URL = "https://script.google.com/macros/s/AKfycbxCXzMMZnZCwJ89WLcsC-I7TtkaWHOMJuRpUnnGbtD-HQkLClrmUpBYCghchjEpJpU/exec";
+
+  const boardKey = () => `superres:${level}:${difficulty}`;
+  function loadLocal() {
+    try { return JSON.parse(localStorage.getItem(boardKey())) || []; } catch { return []; }
+  }
+  function saveLocal(entry) {
+    const list = loadLocal(); list.push(entry);
+    list.sort((a, b) => b.score - a.score);
+    try { localStorage.setItem(boardKey(), JSON.stringify(list.slice(0, 50))); } catch {}
+    return list;
+  }
+  function withTimeout(promise, ms) {
+    return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+  }
+
+  let submitting = false;
+  async function submit() {
+    if (submitting) return;
+    submitting = true;
+    const name = ($("nameIn").value.trim() || "Anónimo").slice(0, 20);
+    lastEntryId = Date.now() + Math.random();
+    const entry = { id: lastEntryId, name, score: finalScore };
+    const localList = saveLocal(entry);
+    $("bSubmit").textContent = "Enviando…"; $("bSubmit").disabled = true;
+
+    let result = null;
+    if (SCORES_URL) {
+      try {
+        const r = await withTimeout(fetch(SCORES_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },   // evita el preflight CORS
+          body: JSON.stringify({ name, score: finalScore, pantalla: level, dificultad: difficulty })
+        }), 12000);
+        const d = await r.json();
+        if (d.ok) result = d;
+      } catch (err) { console.warn("Ranking online no disponible:", err); }
+    }
+    $("bSubmit").textContent = "Enviar"; $("bSubmit").disabled = false;
+    submitting = false;
+
+    if (result) showBoard(result.top, true, { name, score: finalScore, rank: result.rank, total: result.total });
+    else showBoard(localList, false, { name, score: finalScore });
+  }
+  $("bSubmit").onclick = submit;
+  $("nameIn").addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+
+  function showBoard(list, online, me) {
+    phase = "board"; touches = []; expected = [];
+    show("endScreen", false);
+    const b = $("board"); b.innerHTML = "";
+    const h = document.createElement("h2");
+    h.textContent = `${online ? "Top mundial" : "Mejores puntajes"} — ${level === "IIBCE" ? "IIBCE Nanorulers" : level} · ${difficulty}`;
+    b.appendChild(h);
+    const ol = document.createElement("ol");
+    const top = list.slice(0, 10);
+    let marked = false;
+    if (!top.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "Sin puntajes todavía"; ol.appendChild(li); }
+    top.forEach((s, i) => {
+      const li = document.createElement("li");
+      const isMe = online ? (!marked && s.name === me.name && Number(s.score) === me.score) : s.id === lastEntryId;
+      if (isMe) { li.className = "me"; marked = true; }
+      const n = document.createElement("span"); n.textContent = `${i + 1}. ${s.name}`;
+      const v = document.createElement("span"); v.textContent = s.score;
+      li.append(n, v); ol.appendChild(li);
+    });
+    b.appendChild(ol);
+    const note = document.createElement("p");
+    note.style.cssText = "text-align:center;font-size:24px;margin-top:22px;color:#b8f28c";
+    if (online && me.rank) note.textContent = `Tu puesto: ${me.rank} de ${me.total}`;
+    else if (SCORES_URL) { note.style.color = "#e0a040"; note.textContent = "Sin conexión: puntaje guardado en este equipo"; }
+    b.appendChild(note);
+    show("boardScreen", true);
+    draw();
+  }
+
+  // ---------------- Reinicio ----------------
+  function reset() {
+    clearInterval(tickTimer); clearTimeout(gameTimer); clearTimeout(waitTimer);
+    phase = "menu"; points = []; expected = []; touches = [];
+    idx = 0; stay = 0; stateVisible = true; difficulty = null;
+    sprite = { visible: false, info: false, x: 0, y: 0 };
+    for (const o of ["bMedio", "bDificil", "bDr"]) $(o).classList.remove("sel");
+    ["infoScreen", "endScreen", "boardScreen", "bStart"].forEach(id => show(id, false));
+    show("menu", true);
+    draw();
+  }
+  $("bRestart").onclick = reset;
+  $("bRestart2").onclick = reset;
+
+  // ---------------- Música (los navegadores exigen un primer toque) ----------------
+  const song = $("song");
+  let musicOn = true, musicStarted = false;
+  song.volume = 0.6;
+  addEventListener("pointerdown", () => {
+    if (!musicStarted && musicOn) { musicStarted = true; song.play().catch(() => { musicStarted = false; }); }
+  });
+  $("music").onclick = e => {
+    e.stopPropagation();
+    musicOn = !musicOn;
+    $("music").textContent = "Música: " + (musicOn ? "sí" : "no");
+    if (musicOn) { musicStarted = true; song.play().catch(() => {}); } else song.pause();
+  };
+  $("music").addEventListener("pointerdown", e => e.stopPropagation());
+
+  reset();
+})();
+</script>
+</body>
+</html>
