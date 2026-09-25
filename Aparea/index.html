@@ -105,6 +105,10 @@ aside{display:grid;gap:14px}
 .btn.ghost:active{transform:none;box-shadow:inset 0 0 0 2px var(--uv)}
 .sharemsg{font-size:12px !important;color:var(--muted) !important;max-width:34ch}
 .sharemsg textarea{width:100%;margin-top:6px;font:12px var(--body);background:#060a16;color:var(--text);border:1px solid var(--line);padding:6px;resize:none}
+.rtabs{display:flex;gap:4px;margin-bottom:10px}
+.rtab{flex:1;font-family:var(--pix);font-size:11px;letter-spacing:.06em;background:transparent;color:var(--muted);border:2px solid var(--line);padding:6px 4px;cursor:pointer;border-radius:0}
+.rtab.on{background:var(--panel2);color:var(--text);border-color:var(--uv)}
+.rstat{margin:0 0 6px;font-size:12px;color:var(--muted)}
 .linkbtn{margin-top:8px;background:none;border:0;padding:0;color:var(--muted);font:12px var(--body);text-decoration:underline;cursor:pointer}
 .linkbtn.warn{color:var(--bad)}
 .fact p{margin:0}
@@ -172,13 +176,15 @@ aside{display:grid;gap:14px}
           <h2>Se trabó la hebra</h2>
           <p id="overTxt"></p>
           <form class="entry" id="entry" hidden>
-            <label for="initials">¡Entraste al top 10! Poné tus iniciales</label>
+            <label for="initials" id="entryLab">¡Entraste al top 10! Poné tus iniciales</label>
             <div class="entryrow">
               <input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="AAA">
               <button class="btn" type="submit">Guardar</button>
             </div>
           </form>
+          <p class="lab" id="overRankLab" hidden style="margin:0"></p>
           <ol class="rank" id="overRank" hidden></ol>
+          <p class="rstat" id="overStat" hidden></p>
           <div class="overbtns">
             <button class="btn" id="againBtn">Jugar de nuevo</button>
             <button class="btn ghost" id="shareBtn">Compartir puntaje</button>
@@ -232,7 +238,12 @@ aside{display:grid;gap:14px}
         </ul>
       </div>
       <div class="card rankcard">
-        <p class="lab">Top 10 de este dispositivo</p>
+        <div class="rtabs" id="rtabs" hidden role="tablist">
+          <button class="rtab on" data-t="global" role="tab">Mundial</button>
+          <button class="rtab" data-t="local" role="tab">Este dispositivo</button>
+        </div>
+        <p class="lab" id="rankLab">Top 10 de este dispositivo</p>
+        <p class="rstat" id="rstat" hidden></p>
         <ol class="rank" id="rank"></ol>
         <button class="linkbtn" id="clearRank">Borrar récords</button>
       </div>
@@ -298,28 +309,68 @@ let running=false, paused=false, over=false, clearing=null, dropAcc=0, lastT=0, 
 // Si queda vacío, se usa la dirección de la página actual.
 const GAME_URL_CONFIG='';
 const GAME_URL = GAME_URL_CONFIG || (location.protocol.startsWith('http') ? location.href.split('#')[0] : '');
+// Ranking mundial (opcional): pegá acá la URL de tu Google Apps Script (termina en /exec).
+// Vacío = solo ranking por dispositivo.
+const GLOBAL_API_URL='https://script.google.com/macros/s/AKfycbzjIDi4ODvzVPCn2rsxpbIUINj3blfoJddbJbQ8UsI-YDaNSoLbPQ3RQqjSH6CzsgjS/exec';
+let globalTop=null, lastGlobal=null, rankTab='global';
 const RKEY='aparea-top10';
 let top10=[], lastEntryId=null, lastResult=null;
 function loadTop(){ try{ const v=JSON.parse(localStorage.getItem(RKEY)||'[]'); top10=Array.isArray(v)?v.filter(e=>e&&typeof e.s==='number').slice(0,10):[]; }catch(e){ top10=[]; } best=top10[0]?.s||0; }
 function saveTop(){ try{ localStorage.setItem(RKEY,JSON.stringify(top10)); }catch(e){} }
-const qualifies=s=>s>0 && (top10.length<10 || s>top10[top10.length-1].s);
+const qLocal=s=>s>0 && (top10.length<10 || s>top10[top10.length-1].s);
+const qGlobal=s=>s>0 && !!globalTop && (globalTop.length<10 || s>globalTop[globalTop.length-1].s);
+const qualifies=s=>qLocal(s)||qGlobal(s);
+function setStat(id,txt){ const e=$(id); e.textContent=txt||''; e.hidden=!txt; }
+async function fetchGlobal(){
+  if(!GLOBAL_API_URL) return;
+  try{
+    const r=await fetch(GLOBAL_API_URL,{cache:'no-store'}); const d=await r.json();
+    if(d&&d.ok&&Array.isArray(d.top)){ globalTop=d.top.slice(0,10); $('rtabs').hidden=false; setStat('rstat',''); renderRank(); }
+  }catch(e){ if(globalTop===null){ setStat('rstat','No se pudo conectar con el ranking mundial.'); } }
+}
+async function postGlobal(e){
+  if(!GLOBAL_API_URL) return;
+  setStat('overStat','Enviando al ranking mundial…');
+  try{
+    const r=await fetch(GLOBAL_API_URL,{method:'POST',body:JSON.stringify({n:e.n,s:e.s,h:e.h,b:e.b})});
+    const d=await r.json();
+    if(d&&d.ok&&Array.isArray(d.top)){
+      globalTop=d.top.slice(0,10); lastGlobal={n:e.n,s:e.s}; $('rtabs').hidden=false; rankTab='global';
+      const pos=globalTop.findIndex(x=>x.n===e.n&&x.s===e.s)+1;
+      setStat('overStat',pos?`¡Quedaste en el puesto ${pos} del ranking mundial!`:'Guardado en el ranking mundial.');
+      renderRank();
+    } else setStat('overStat','El ranking mundial no aceptó el puntaje. Quedó guardado en este dispositivo.');
+  }catch(err){ setStat('overStat','Sin conexión: el puntaje quedó guardado en este dispositivo.'); }
+}
 function addEntry(name,res){
   const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),n:name,s:res.score,h:res.helices,b:res.bad};
   top10.push(e); top10.sort((a,b)=>b.s-a.s); top10=top10.slice(0,10); saveTop();
   best=top10[0]?.s||0; lastEntryId=e.id; renderRank();
 }
-function fillRank(ol){
+function fillRank(ol,list,isGlobal){
   ol.textContent='';
-  if(!top10.length){ const li=document.createElement('li'); li.className='empty'; li.textContent='Todavía no hay récords. ¡Jugá la primera partida!'; ol.appendChild(li); return; }
-  top10.forEach(e=>{
-    const li=document.createElement('li'); if(e.id===lastEntryId) li.className='me';
+  if(!list.length){ const li=document.createElement('li'); li.className='empty'; li.textContent=isGlobal?'Todavía no hay puntajes. ¡Sé la primera persona!':'Todavía no hay récords. ¡Jugá la primera partida!'; ol.appendChild(li); return; }
+  let marked=false;
+  list.forEach(e=>{
+    const li=document.createElement('li');
+    const me = isGlobal ? (!marked && lastGlobal && e.n===lastGlobal.n && e.s===lastGlobal.s) : e.id===lastEntryId;
+    if(me){ li.className='me'; marked=true; }
     const n=document.createElement('span'); n.className='n'; n.textContent=e.n;
     const h=document.createElement('span'); h.className='h'; h.textContent=`${e.h} hél.`;
     const s=document.createElement('span'); s.className='s'; s.textContent=e.s;
     li.append(n,h,s); ol.appendChild(li);
   });
 }
-function renderRank(){ fillRank($('rank')); fillRank($('overRank')); }
+function renderRank(){
+  const g = rankTab==='global' && globalTop;
+  fillRank($('rank'), g?globalTop:top10, !!g);
+  $('rankLab').textContent = g ? 'Top 10 mundial' : 'Top 10 de este dispositivo';
+  $('clearRank').hidden = !!g;
+  document.querySelectorAll('.rtab').forEach(b=>b.classList.toggle('on', b.dataset.t===(g?'global':'local')));
+  const og = !!globalTop;
+  fillRank($('overRank'), og?globalTop:top10, og);
+  $('overRankLab').textContent = og ? 'Top 10 mundial' : 'Top 10 de este dispositivo';
+}
 loadTop();
 
 const emptyRow=()=>Array(COLS).fill(null);
@@ -543,16 +594,18 @@ function afterClears(){
 function gameOver(){
   if(over) return;
   over=true; running=false; piece=null; stopMusic(); sfx('over');
-  lastResult={score,helices,pairs,bad}; lastEntryId=null;
-  $('shareMsg').hidden=true;
+  lastResult={score,helices,pairs,bad}; lastEntryId=null; lastGlobal=null;
+  $('shareMsg').hidden=true; setStat('overStat','');
+  $('entryLab').textContent = qGlobal(score) ? '¡Entraste al ranking mundial! Poné tus iniciales' : '¡Entraste al top 10! Poné tus iniciales';
   if(qualifies(score)){
-    $('entry').hidden=false; $('overRank').hidden=true;
+    $('entry').hidden=false; $('overRank').hidden=true; $('overRankLab').hidden=true;
     let saved=''; try{ saved=localStorage.getItem('aparea-initials')||''; }catch(e){}
     $('initials').value=saved;
     setTimeout(()=>{ try{ $('initials').focus(); $('initials').select(); }catch(e){} },60);
   } else {
-    $('entry').hidden=true; renderRank(); $('overRank').hidden=false;
+    $('entry').hidden=true; renderRank(); $('overRank').hidden=false; $('overRankLab').hidden=false;
   }
+  fetchGlobal();
   const note = fixedMm>0
     ? `${fixedMm} mismatch${fixedMm>1?'es quedaron':' quedó'} dentro de tus hélices. En una célula, si no se reparan, en la próxima replicación se vuelven mutaciones.`
     : (helices>0 ? '¡Todas tus hélices fueron perfectas! Así de fiel es la replicación después de la corrección y la reparación.' : FACTS[0]);
@@ -919,8 +972,11 @@ $('entry').addEventListener('submit',e=>{
   e.preventDefault(); if(!lastResult) return;
   const name=($('initials').value||'???').toUpperCase().padEnd(3,'·');
   try{ localStorage.setItem('aparea-initials',$('initials').value); }catch(err){}
-  addEntry(name,lastResult); sfx('level');
-  $('entry').hidden=true; $('overRank').hidden=false; $('againBtn').focus();
+  const res=lastResult;
+  if(qLocal(res.score)) addEntry(name,res);
+  sfx('level');
+  $('entry').hidden=true; $('overRank').hidden=false; $('overRankLab').hidden=false; $('againBtn').focus();
+  if(qGlobal(res.score)) postGlobal({n:name,s:res.score,h:res.helices,b:res.bad});
 });
 function shareText(){
   const r=lastResult||{score:0,helices:0,bad:0};
@@ -945,8 +1001,8 @@ $('clearRank').onclick=()=>{
   if(!clearArmed){ b.textContent='¿Seguro? Tocá de nuevo para borrar'; b.classList.add('warn'); clearArmed=setTimeout(()=>{ clearArmed=null; b.textContent='Borrar récords'; b.classList.remove('warn'); },3000); return; }
   clearTimeout(clearArmed); clearArmed=null; b.textContent='Borrar récords'; b.classList.remove('warn');
   top10=[]; best=0; lastEntryId=null; saveTop(); renderRank(); hud();
-};
-renderRank();
+};document.querySelectorAll('.rtab').forEach(b=>b.addEventListener('click',()=>{ rankTab=b.dataset.t; renderRank(); }));
+renderRank(); fetchGlobal();
 $('resumeBtn').onclick=()=>setPause(false);
 $('mPause').onclick=()=>setPause(!paused);
 
