@@ -1,0 +1,1032 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Apareá: un juego de bloques para aprender el apareamiento de bases del ADN. A con T, G con C.">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Apareá</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#090e1d; --panel:#111934; --panel2:#18224a; --line:#26325f;
+  --text:#e8edff; --muted:#8e99c6; --uv:#a48bff; --uv-ink:#1a1240;
+  --A:#3ddc84; --T:#ff5d73; --G:#ffc93c; --C:#4cc9f0; --bad:#ff4d5e;
+  --pix:"Silkscreen", "Courier New", monospace;
+  --body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+html{overscroll-behavior-y:contain}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:var(--body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:18px 28px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 58px, rgba(164,139,255,.035) 58px 62px),
+    radial-gradient(1200px 600px at 50% -10%, #17204a 0%, var(--bg) 60%);
+  background-color:var(--bg); min-height:100vh;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:1000px;margin:0 auto;display:grid;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 24px}
+h1{font-family:var(--pix);font-weight:700;font-size:clamp(30px,6vw,54px);line-height:1;margin:0;letter-spacing:.02em}
+h1 .A{color:var(--A)} h1 .T{color:var(--T)}
+.tag{margin:6px 0 0;color:var(--muted);max-width:52ch}
+.audio{display:flex;gap:8px}
+.chip{font-family:var(--pix);font-size:12px;letter-spacing:.06em;background:var(--panel);color:var(--text);border:2px solid var(--line);
+  padding:7px 10px;cursor:pointer;border-radius:0}
+.chip[aria-pressed="false"]{color:var(--muted);text-decoration:line-through}
+.chip:focus-visible,.btn:focus-visible,.pad button:focus-visible{outline:3px solid var(--uv);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+.stage{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;scroll-margin-top:8px}
+.boardbox{position:relative;border:3px solid var(--line);background:#060a16;box-shadow:0 0 0 3px #060a16, 0 20px 60px -20px rgba(164,139,255,.35)}
+canvas{display:block}
+#board{touch-action:none}
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;
+  background:rgba(6,10,22,.9);padding:16px;overflow:auto}
+.overlay[hidden]{display:none}
+.overlay h2{font-family:var(--pix);font-size:20px;margin:0;letter-spacing:.04em}
+.overlay p{margin:0;max-width:32ch;color:#c9d1f5;font-size:14px}
+.pairs{display:flex;gap:14px;font-family:var(--pix);font-size:18px}
+.pairs span{display:flex;flex-direction:column;align-items:center;gap:2px}
+.pairs small{font-family:var(--body);font-size:11px;color:var(--muted)}
+.btn{font-family:var(--pix);font-weight:700;font-size:15px;letter-spacing:.06em;background:var(--uv);color:var(--uv-ink);border:0;padding:12px 22px;cursor:pointer;
+  box-shadow:0 4px 0 #5b43c4}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #5b43c4}
+.touchhint{display:none}
+
+.mhud{display:none;width:100%;align-items:center;gap:6px;justify-content:space-between}
+.mhud .m{display:flex;flex-direction:column;align-items:center;min-width:0}
+.mhud b{font-family:var(--pix);font-size:16px;line-height:1.1;font-variant-numeric:tabular-nums}
+.mhud span{font-size:10px;color:var(--muted)}
+.mhud .m.bad b{color:var(--bad)}
+.mhud .pz{font-family:var(--pix);font-size:14px;background:var(--panel);color:var(--text);border:2px solid var(--line);padding:6px 10px;border-radius:0}
+
+.pad{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;width:100%;max-width:480px;touch-action:none}
+.pad button{font-family:var(--pix);font-size:20px;background:var(--panel);color:var(--text);border:2px solid var(--line);padding:12px 0;cursor:pointer;
+  touch-action:none;user-select:none;-webkit-user-select:none;border-radius:0}
+.pad button small{display:block;font-family:var(--body);font-size:10px;color:var(--muted);letter-spacing:.02em}
+.pad button:active{background:var(--panel2)}
+.pad .pw{grid-column:span 3;font-size:14px;padding:9px 4px;letter-spacing:.04em;border-color:#4a3c8f;color:#d9ceff}
+.pad .pw.used{opacity:.35}
+.pad .pw img{width:26px;height:26px;image-rendering:pixelated;vertical-align:middle;margin-right:6px}
+
+aside{display:grid;gap:14px}
+.card{background:var(--panel);border:2px solid var(--line);padding:14px}
+.lab{font-family:var(--pix);font-size:11px;letter-spacing:.1em;color:var(--muted);margin:0 0 6px;text-transform:uppercase}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.stat b{display:block;font-family:var(--pix);font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.stat.bad b{color:var(--bad)}
+.fact{min-height:6.5em}
+.previews{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.previews canvas{margin-top:2px}
+.mhud .pv{display:flex;flex-direction:column;align-items:center}
+.tolbar{display:flex;gap:3px;margin-top:4px}
+.tolbar i{width:10px;height:10px;background:var(--bad);display:block}
+.tolbar i.off{background:var(--line)}
+.rank{margin:0;padding:0;list-style:none;display:grid;gap:2px;counter-reset:rk;width:100%}
+.rank li{counter-increment:rk;display:grid;grid-template-columns:2.2em 3.5em 1fr auto;align-items:baseline;gap:6px;font-family:var(--pix);font-size:13px;padding:3px 4px;font-variant-numeric:tabular-nums}
+.rank li::before{content:counter(rk) ".";color:var(--muted)}
+.rank li .n{letter-spacing:.12em}
+.rank li .h{font-family:var(--body);font-size:11px;color:var(--muted);text-align:right}
+.rank li .s{text-align:right}
+.rank li:nth-child(1) .n,.rank li:nth-child(1) .s{color:var(--G)}
+.rank li.me{background:var(--panel2);outline:1px solid var(--uv)}
+.rank .empty{font-family:var(--body);font-size:13px;color:var(--muted);grid-template-columns:1fr}
+.rank .empty::before{content:none}
+.overlay .rank{max-width:300px;text-align:left}
+.entry{display:grid;gap:8px;justify-items:center}
+.entry label{font-size:13px;color:var(--G)}
+.entryrow{display:flex;gap:8px}
+#initials{font-family:var(--pix);font-size:24px;width:5.2em;text-align:center;letter-spacing:.25em;text-transform:uppercase;background:#060a16;color:var(--text);border:2px solid var(--uv);padding:6px 4px;border-radius:0}
+#initials:focus-visible{outline:3px solid var(--uv);outline-offset:2px}
+.overbtns{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.btn.ghost{background:transparent;color:var(--text);box-shadow:inset 0 0 0 2px var(--uv)}
+.btn.ghost:active{transform:none;box-shadow:inset 0 0 0 2px var(--uv)}
+.sharemsg{font-size:12px !important;color:var(--muted) !important;max-width:34ch}
+.sharemsg textarea{width:100%;margin-top:6px;font:12px var(--body);background:#060a16;color:var(--text);border:1px solid var(--line);padding:6px;resize:none}
+.linkbtn{margin-top:8px;background:none;border:0;padding:0;color:var(--muted);font:12px var(--body);text-decoration:underline;cursor:pointer}
+.linkbtn.warn{color:var(--bad)}
+.fact p{margin:0}
+.keys{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:13px;color:#c9d1f5}
+.keys kbd{font-family:var(--pix);font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:1px 6px;margin-right:6px;color:var(--text)}
+.credit{font-size:12px;color:var(--muted);margin:0}
+
+@media (max-width: 760px){
+  body{padding-block:10px 20px}
+  .tag{display:none}
+  .chip{font-size:11px;padding:6px 8px}
+  .game{grid-template-columns:1fr;gap:14px}
+  .mhud{display:flex}
+  .statcard,.nextcard,.help{display:none}
+  .pad button{padding:14px 0}
+  .touchhint{display:block}
+}
+@media (pointer: coarse){ .touchhint{display:block} }
+@media (prefers-reduced-motion: reduce){ .btn:active{transform:none} }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="A">A</span>pare<span class="T">á</span></h1>
+      <p class="tag">Un juego de bloques donde las filas se van solo si forman una doble hélice: A con T, G con C.</p>
+    </div>
+    <div class="audio">
+      <button class="chip" id="musicBtn" aria-pressed="true">Música</button>
+      <button class="chip" id="sfxBtn" aria-pressed="true">Sonido</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <div class="stage" id="stage">
+      <div class="mhud" id="mhud">
+        <div class="m"><b id="mScore">0</b><span>puntos</span></div>
+        <div class="m"><b id="mLevel">1</b><span id="mLvlSub">nivel 0/3</span></div>
+        <div class="m"><b id="mHelix">0</b><span>hélices</span></div>
+        <div class="m bad"><b id="mTol">4</b><span>permitidos</span></div>
+        <div class="pv"><canvas id="mnext" aria-label="Próximo fragmento"></canvas><span>próximo</span></div>
+        <div class="pv"><canvas id="mhold" aria-label="Fragmento guardado"></canvas><span>guardado</span></div>
+        <button class="pz" id="mPause" aria-label="Pausa">II</button>
+      </div>
+      <div class="boardbox" id="boardbox">
+        <canvas id="board" aria-label="Tablero del juego"></canvas>
+        <div class="overlay" id="startOv">
+          <h2>Apareá las bases</h2>
+          <div class="pairs">
+            <span><span><b style="color:var(--A)">A</b>=<b style="color:var(--T)">T</b></span><small>2 puentes H</small></span>
+            <span><span><b style="color:var(--G)">G</b>≡<b style="color:var(--C)">C</b></span><small>3 puentes H</small></span>
+          </div>
+          <p>Caen fragmentos de ADN de distintas formas. Cada base tiene que quedar arriba de su complementaria. Cuando una fila completa aparea con la de abajo, se cierra la doble hélice y las dos filas desaparecen.</p>
+          <p style="font-size:13px;color:var(--muted)">Al principio se permiten hasta 4 mismatches por hélice. Cada 3 hélices subís de nivel: va más rápido y se permiten menos mismatches. Girá el fragmento para encontrar dónde encaja, y si no encaja en ningún lado, guardalo para después. Una vez por nivel podés usar dos enzimas: caen desde arriba y las ubicás como un fragmento más: la DNasa corta un bloque de 2×2 debajo de donde cae y la helicasa separa (borra) la fila sobre la que cae. La base N es un comodín: aparea con cualquiera.</p>
+          <p class="touchhint" style="font-size:13px;color:var(--muted)">En el celu: deslizá para mover, tocá para girar, deslizá rápido hacia abajo para soltar y hacia arriba para guardar.</p>
+          <button class="btn" id="startBtn">Jugar</button>
+        </div>
+        <div class="overlay" id="pauseOv" hidden>
+          <h2>Pausa</h2>
+          <button class="btn" id="resumeBtn">Seguir</button>
+        </div>
+        <div class="overlay" id="overOv" hidden>
+          <h2>Se trabó la hebra</h2>
+          <p id="overTxt"></p>
+          <form class="entry" id="entry" hidden>
+            <label for="initials">¡Entraste al top 10! Poné tus iniciales</label>
+            <div class="entryrow">
+              <input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="AAA">
+              <button class="btn" type="submit">Guardar</button>
+            </div>
+          </form>
+          <ol class="rank" id="overRank" hidden></ol>
+          <div class="overbtns">
+            <button class="btn" id="againBtn">Jugar de nuevo</button>
+            <button class="btn ghost" id="shareBtn">Compartir puntaje</button>
+          </div>
+          <p class="sharemsg" id="shareMsg" hidden></p>
+        </div>
+      </div>
+      <div class="pad" id="pad">
+        <button data-a="left" aria-label="Mover a la izquierda">◀<small>mover</small></button>
+        <button data-a="rot" aria-label="Girar fragmento">⟳<small>girar</small></button>
+        <button data-a="hold" aria-label="Guardar fragmento">⇅<small>guardar</small></button>
+        <button data-a="down" aria-label="Bajar">▼<small>bajar</small></button>
+        <button data-a="drop" aria-label="Soltar">⤓<small>soltar</small></button>
+        <button data-a="right" aria-label="Mover a la derecha">▶<small>mover</small></button>
+        <button data-a="dnase" id="pDnase" class="pw" aria-label="Usar DNasa"><img alt="" id="iDnase">DNasa<small>corta 2×2 · D</small></button>
+        <button data-a="heli" id="pHeli" class="pw" aria-label="Usar helicasa"><img alt="" id="iHeli">Helicasa<small>borra la fila donde cae · E</small></button>
+      </div>
+    </div>
+
+    <aside>
+      <div class="card statcard">
+        <p class="lab">Laboratorio</p>
+        <div class="stats">
+          <div class="stat"><b id="sScore">0</b><span>puntos</span></div>
+          <div class="stat"><b id="sLevel">1</b><span id="sLvlSub">nivel · 0/3 hélices</span></div>
+          <div class="stat"><b id="sHelix">0</b><span>dobles hélices</span></div>
+          <div class="stat"><b id="sPairs">0</b><span>pares de bases</span></div>
+          <div class="stat bad"><b id="sBad">0</b><span>mismatches</span></div>
+          <div class="stat"><b id="sBest">0</b><span>récord</span></div>
+          <div class="stat" style="grid-column:1 / -1"><span>mismatches permitidos por hélice</span><div class="tolbar" id="tolbar"></div></div>
+        </div>
+      </div>
+      <div class="card nextcard">
+        <div class="previews">
+          <div><p class="lab">Próximo</p><canvas id="next" aria-label="Próximo fragmento"></canvas></div>
+          <div><p class="lab">Guardado · C / O</p><canvas id="hold" aria-label="Fragmento guardado"></canvas></div>
+        </div>
+      </div>
+      <div class="card fact">
+        <p class="lab">¿Sabías que…?</p>
+        <p id="fact"></p>
+      </div>
+      <div class="card help">
+        <p class="lab">Controles</p>
+        <ul class="keys">
+          <li><kbd>← →</kbd>mover</li>
+          <li><kbd>↑</kbd>girar · <kbd>C</kbd>/<kbd>O</kbd>guardar</li>
+          <li><kbd>↓</kbd>bajar · <kbd>espacio</kbd>soltar</li>
+          <li><kbd>D</kbd>DNasa · <kbd>E</kbd>helicasa (1 vez por nivel)</li>
+          <li><kbd>P</kbd>pausa · <kbd>M</kbd>música</li>
+        </ul>
+      </div>
+      <div class="card rankcard">
+        <p class="lab">Top 10 de este dispositivo</p>
+        <ol class="rank" id="rank"></ol>
+        <button class="linkbtn" id="clearRank">Borrar récords</button>
+      </div>
+      <p class="credit">Música original chiptune con tambores 8 bit inspirados en el candombe: chico, repique, piano y madera. Libre para usar en actividades de divulgación.</p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(()=>{
+const COLS=8, ROWS=14;
+const PAIR={A:'T',T:'A',G:'C',C:'G'};
+const HB={A:2,T:2,G:3,C:3,N:2};
+const ok=(a,b)=>a==='N'||b==='N'||PAIR[a]===b;
+const compOf=b=>b==='N'?'ATGC'[Math.floor(Math.random()*4)]:PAIR[b];
+const COL={A:'#3ddc84',T:'#ff5d73',G:'#ffc93c',C:'#4cc9f0',N:'#e4defc'};
+const DARK={A:'#1d7a47',T:'#a3293b',G:'#a9801a',C:'#1f7c9c',N:'#7b70b8'};
+const LIGHT={A:'#9dffc6',T:'#ffb0bb',G:'#ffe79a',C:'#aeeaff',N:'#ffffff'};
+
+const FACTS=[
+  'A y T se unen con 2 puentes de hidrógeno; G y C, con 3. Por eso el ADN rico en G–C necesita más temperatura para separarse.',
+  'Las dos hebras del ADN son antiparalelas: una va de 5′ a 3′ y la otra de 3′ a 5′. Fijate en los números al costado de cada fila.',
+  'Regla de Chargaff: en el ADN de doble hebra hay tanta A como T, y tanta G como C.',
+  'La doble hélice se propuso en 1953, a partir de datos de difracción de rayos X obtenidos por Rosalind Franklin y Raymond Gosling.',
+  'El genoma humano tiene unos 3.100 millones de pares de bases. En este tablero serían casi 400 millones de filas.',
+  'La ADN polimerasa se equivoca aproximadamente 1 vez cada 100.000 bases, pero revisa lo que copia. Con la reparación de mismatches, el error final baja a cerca de 1 en mil millones.',
+  'Un mismatch que no se repara puede convertirse en una mutación permanente en la siguiente ronda de replicación.',
+  'La PCR usa este mismo principio: fragmentos cortos (cebadores) se aparean con su secuencia complementaria y la polimerasa copia a partir de ahí.',
+  'En el ARN no hay T: su lugar lo ocupa el uracilo (U), que también se aparea con la A.',
+  'En la hebra rezagada el ADN se copia en tramos cortos, los fragmentos de Okazaki, que después une la ADN ligasa.',
+  'Algunas moléculas de ARN se pliegan sobre sí mismas y aparean bases dentro de la misma hebra, formando horquillas. Como tus fragmentos verticales.',
+  'Los mismatches que quedan dentro de una hélice son como errores de copia que escaparon a la reparación: si la célula no los corrige, en la siguiente replicación se vuelven mutaciones.',
+  'El comodín N: en las secuencias de ADN la letra N significa "cualquier base". En la naturaleza existe algo parecido, la inosina, que puede aparearse con A, C o U.',
+  'Las bases apiladas unas sobre otras estabilizan la doble hélice tanto como los puentes de hidrógeno entre pares.',
+];
+
+const SHAPES={
+  I2:[[0,0],[1,0]], I3:[[0,0],[1,0],[2,0]], L3:[[0,0],[0,1],[1,1]],
+  I4:[[0,0],[1,0],[2,0],[3,0]], O:[[0,0],[1,0],[0,1],[1,1]], T:[[0,0],[1,0],[2,0],[1,1]],
+  L:[[0,0],[0,1],[0,2],[1,2]], J:[[1,0],[1,1],[1,2],[0,2]], S:[[1,0],[2,0],[0,1],[1,1]], Z:[[0,0],[1,0],[1,1],[2,1]]
+};
+const POOL1=['I2','I3','I3','L3','L3','T','O'];
+const POOL2=['I2','I3','L3','L3','I4','O','T','L','J','S','Z'];
+
+// ---------- DOM ----------
+const $=id=>document.getElementById(id);
+const cv=$('board'), ctx=cv.getContext('2d');
+const nv=$('next'), nctx=nv.getContext('2d');
+const mv=$('mnext'), mctx=mv.getContext('2d');
+const hv=$('hold'), hctx=hv.getContext('2d');
+const mhv=$('mhold'), mhctx=mhv.getContext('2d');
+let held=null, canHold=true, fixedMm=0, dnaseOk=true, heliOk=true, savedPiece=null;
+const TOL=[4,3,2,2,1,1,0];
+const tol=()=>TOL[Math.min(level-1,TOL.length-1)];
+const box=$('boardbox'), stage=$('stage');
+const isMobile=()=>matchMedia('(max-width: 760px)').matches;
+
+// ---------- state ----------
+let grid, piece, next, score, level, helices, pairs, bad, best=0;
+let running=false, paused=false, over=false, clearing=null, dropAcc=0, lastT=0, floaters=[], factIdx=0;
+// ---------- local top 10 (per device, ideal for a booth tablet) ----------
+// Pegá acá el link público donde publiques el juego (itch.io, GitHub Pages, etc.).
+// Si queda vacío, se usa la dirección de la página actual.
+const GAME_URL_CONFIG='';
+const GAME_URL = GAME_URL_CONFIG || (location.protocol.startsWith('http') ? location.href.split('#')[0] : '');
+const RKEY='aparea-top10';
+let top10=[], lastEntryId=null, lastResult=null;
+function loadTop(){ try{ const v=JSON.parse(localStorage.getItem(RKEY)||'[]'); top10=Array.isArray(v)?v.filter(e=>e&&typeof e.s==='number').slice(0,10):[]; }catch(e){ top10=[]; } best=top10[0]?.s||0; }
+function saveTop(){ try{ localStorage.setItem(RKEY,JSON.stringify(top10)); }catch(e){} }
+const qualifies=s=>s>0 && (top10.length<10 || s>top10[top10.length-1].s);
+function addEntry(name,res){
+  const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),n:name,s:res.score,h:res.helices,b:res.bad};
+  top10.push(e); top10.sort((a,b)=>b.s-a.s); top10=top10.slice(0,10); saveTop();
+  best=top10[0]?.s||0; lastEntryId=e.id; renderRank();
+}
+function fillRank(ol){
+  ol.textContent='';
+  if(!top10.length){ const li=document.createElement('li'); li.className='empty'; li.textContent='Todavía no hay récords. ¡Jugá la primera partida!'; ol.appendChild(li); return; }
+  top10.forEach(e=>{
+    const li=document.createElement('li'); if(e.id===lastEntryId) li.className='me';
+    const n=document.createElement('span'); n.className='n'; n.textContent=e.n;
+    const h=document.createElement('span'); h.className='h'; h.textContent=`${e.h} hél.`;
+    const s=document.createElement('span'); s.className='s'; s.textContent=e.s;
+    li.append(n,h,s); ol.appendChild(li);
+  });
+}
+function renderRank(){ fillRank($('rank')); fillRank($('overRank')); }
+loadTop();
+
+const emptyRow=()=>Array(COLS).fill(null);
+const rb=()=>'ATGC'[Math.floor(Math.random()*4)];
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const templateRow=()=>Array.from({length:COLS},rb);
+const leftEndFor=row=>((ROWS-1-row)%2===0)?'5′':'3′';
+const other=e=>e==='5′'?'3′':'5′';
+const W_=cells=>Math.max(...cells.map(c=>c.x))+1;
+const H_=cells=>Math.max(...cells.map(c=>c.y))+1;
+
+function rotateCells(cells){
+  const r=cells.map(c=>({x:-c.y,y:c.x,b:c.b}));
+  const mx=Math.min(...r.map(c=>c.x)), my=Math.min(...r.map(c=>c.y));
+  return r.map(c=>({x:c.x-mx,y:c.y-my,b:c.b}));
+}
+function collide(cells,x,y){
+  for(const k of cells){
+    const c=x+k.x, r=y+k.y;
+    if(c<0||c>=COLS||r>=ROWS) return true;
+    if(r>=0 && grid[r][c]) return true;
+  }
+  return false;
+}
+const pieceAt=(cells,x,y)=>cells.find(c=>c.x===x&&c.y===y);
+
+// Build a fragment that fits somewhere on the current board, then hand it over in a random orientation.
+function makePiece(){
+  const name=pick(level<2?POOL1:POOL2);
+  const rots=[SHAPES[name].map(([x,y])=>({x,y,b:null}))];
+  for(let k=1;k<4;k++) rots.push(rotateCells(rots[k-1]));
+  let bestSc=-1e9, bestP=null;
+  rots.forEach((cells,rix)=>{
+    const w=W_(cells);
+    for(let x=0;x<=COLS-w;x++){
+      if(collide(cells,x,0)) continue;
+      let y=0; while(!collide(cells,x,y+1)) y++;
+      let sc=Math.random()*1.5;
+      const rowAdd={};
+      cells.forEach(c=>{
+        const r=y+c.y, col=x+c.x;
+        rowAdd[r]=(rowAdd[r]||0)+1;
+        if(pieceAt(cells,c.x,c.y+1)) sc+=0.5;
+        else if(r+1>=ROWS) sc+=1;
+        else if(grid[r+1][col]) sc+=2;
+        else sc-=2.5;
+      });
+      for(const r in rowAdd){ const filled=grid[r].filter(Boolean).length+rowAdd[r]; if(filled===COLS) sc+=4; }
+      if(sc>bestSc){ bestSc=sc; bestP={rix,x,y}; }
+    }
+  });
+  let cells;
+  const fuzzy=Math.random() < Math.min(0.35, 0.12+level*0.03);
+  if(bestP && !fuzzy){
+    cells=rots[bestP.rix].map(c=>({...c}));
+    [...cells].sort((a,b)=>b.y-a.y).forEach(c=>{
+      const under=pieceAt(cells,c.x,c.y+1);
+      const r=bestP.y+c.y, col=bestP.x+c.x;
+      if(under) c.b=compOf(under.b);
+      else if(r+1<ROWS && grid[r+1][col]) c.b=compOf(grid[r+1][col]);
+      else c.b=rb();
+    });
+  } else {
+    cells=rots[0].map(c=>({...c,b:rb()}));
+  }
+  if(Math.random()<0.08) cells[ri(0,cells.length-1)].b='N';
+  const turns=ri(0,3); for(let k=0;k<turns;k++) cells=rotateCells(cells);
+  return {cells,x:0,y:0};
+}
+
+function holdPiece(){
+  if(!piece||clearing||!canHold||piece.tool) return;
+  const cur={cells:piece.cells,x:0,y:0};
+  canHold=false; sfx('hold');
+  if(held){
+    piece=held; held=cur;
+    piece.x=Math.floor((COLS-W_(piece.cells))/2); piece.y=0; dropAcc=0;
+    drawNext();
+    if(collide(piece.cells,piece.x,piece.y)) gameOver();
+  } else { held=cur; spawn(); }
+}
+const FACT_DNASE='Las DNasas son enzimas que cortan el ADN. En el laboratorio se usan, por ejemplo, para eliminar ADN que contamina una muestra de ARN.';
+const FACT_HELI='La helicasa separa las dos hebras de la doble hélice rompiendo los puentes de hidrógeno. Muchas helicasas son anillos de 6 subunidades por los que pasa una sola hebra de ADN, como la del dibujo.';
+function useDnase(){
+  if(!piece||clearing||piece.tool||!dnaseOk) return;
+  dnaseOk=false; savedPiece=piece;
+  const x=Math.max(0,Math.min(COLS-2,piece.x));
+  piece={tool:'dnase',cells:[{x:0,y:0,b:'N'},{x:1,y:0,b:'N'},{x:0,y:1,b:'N'},{x:1,y:1,b:'N'}],x,y:0};
+  if(collide(piece.cells,piece.x,piece.y)){ piece=savedPiece; savedPiece=null; dnaseOk=true; return; }
+  dropAcc=0; sfx('power'); $('fact').textContent=FACT_DNASE; hud();
+}
+function dnaseTargets(P,y){
+  const t=[];
+  for(let dx=0;dx<2;dx++) for(let dy=2;dy<4;dy++){ const r=y+dy, c=P.x+dx; if(r<ROWS && grid[r][c]) t.push([r,c]); }
+  return t;
+}
+function doDnase(){
+  const P=piece, t=dnaseTargets(P,P.y);
+  t.forEach(([r,c])=>{ grid[r][c]=null; });
+  sfx('cut');
+  floaters.push({t:0,x:P.x+1,y:P.y+2,txt:t.length?`✂ ${t.length} bases cortadas`:'✂ corte en el vacío',col:'#ff8a96'});
+  piece=savedPiece; savedPiece=null;
+  piece.x=Math.floor((COLS-W_(piece.cells))/2); piece.y=0; dropAcc=0;
+  hud();
+  if(collide(piece.cells,piece.x,piece.y)) gameOver();
+}
+function useHeli(){
+  if(!piece||clearing||piece.tool||!heliOk) return;
+  heliOk=false; savedPiece=piece;
+  const x=Math.max(0,Math.min(COLS-2,piece.x));
+  piece={tool:'heli',cells:[{x:0,y:0,b:'N'},{x:1,y:0,b:'N'},{x:0,y:1,b:'N'},{x:1,y:1,b:'N'}],x,y:0};
+  if(collide(piece.cells,piece.x,piece.y)){ piece=savedPiece; savedPiece=null; heliOk=true; return; }
+  dropAcc=0; sfx('power'); $('fact').textContent=FACT_HELI; hud();
+}
+const heliRow=y=>Math.min(y+2,ROWS-1);
+function doHeli(){
+  const P=piece, r=heliRow(P.y);
+  piece=savedPiece; savedPiece=null;
+  piece.x=Math.floor((COLS-W_(piece.cells))/2); piece.y=0; dropAcc=0;
+  if(grid[r].some(Boolean)){ clearing={rows:[r],t:0,kind:'heli'}; sfx('unzip'); }
+  else floaters.push({t:0,x:P.x+1,y:P.y+1,txt:'Nada que separar',col:'#a48bff'});
+  hud();
+  if(collide(piece.cells,piece.x,piece.y)) gameOver();
+}
+function spawn(){
+  piece=next; piece.x=Math.floor((COLS-W_(piece.cells))/2); piece.y=0;
+  next=makePiece(); drawNext();
+  if(collide(piece.cells,piece.x,piece.y)) gameOver();
+}
+
+function newGame(){
+  grid=[]; for(let r=0;r<ROWS;r++) grid.push(emptyRow());
+  grid[ROWS-1]=templateRow();
+  score=0; level=1; helices=0; pairs=0; bad=0; held=null; canHold=true; fixedMm=0; dnaseOk=true; heliOk=true; savedPiece=null; over=false; paused=false; clearing=null; floaters=[]; dropAcc=0;
+  next=makePiece(); spawn(); hud(); showFact();
+}
+
+const interval=()=>Math.max(120, 950*Math.pow(0.87,level-1));
+
+function stepDown(){
+  if(!piece) return;
+  if(!collide(piece.cells,piece.x,piece.y+1)) piece.y++;
+  else lock();
+}
+function move(dx){ if(!piece||clearing) return false; if(!collide(piece.cells,piece.x+dx,piece.y)){ piece.x+=dx; sfx('move'); return true; } return false; }
+function rotate(){
+  if(!piece||clearing||piece.tool) return;
+  const nc=rotateCells(piece.cells);
+  const nx=piece.x+Math.floor((W_(piece.cells)-W_(nc))/2);
+  for(const k of [0,-1,1,-2,2]){
+    for(const ky of [0,-1]){
+      if(!collide(nc,nx+k,piece.y+ky)){ piece.cells=nc; piece.x=nx+k; piece.y+=ky; sfx('rot'); return; }
+    }
+  }
+}
+function soft(){ if(!piece||clearing) return; stepDown(); dropAcc=0; }
+function hard(){
+  if(!piece||clearing) return;
+  let n=0; while(!collide(piece.cells,piece.x,piece.y+1)){ piece.y++; n++; }
+  score+=n; lock();
+}
+
+function lock(){
+  if(piece.tool==='dnase'){ doDnase(); return; }
+  if(piece.tool==='heli'){ doHeli(); return; }
+  const P=piece; let g=0,b=0;
+  P.cells.forEach(c=>{ const r=P.y+c.y; if(r>=0) grid[r][P.x+c.x]=c.b; });
+  P.cells.forEach(c=>{
+    const r=P.y+c.y, col=P.x+c.x;
+    if(r>=0 && r+1<ROWS){ const below=grid[r+1][col]; if(below){ ok(c.b,below) ? g++ : b++; } }
+  });
+  if(P.cells.some(c=>P.y+c.y<0)){ piece=null; gameOver(); return; }
+  pairs+=g; bad+=b; score+=g*5*level;
+  const cx=P.x+W_(P.cells)/2, cy=P.y;
+  if(b){ sfx('bad'); floaters.push({t:0,x:cx,y:cy,txt:b>1?`${b} mismatches`:'mismatch',col:'#ff4d5e'}); }
+  else if(g){ sfx('good'); floaters.push({t:0,x:cx,y:cy,txt:`+${g} par${g>1?'es':''}`,col:'#e8edff'}); }
+  else sfx('land');
+  piece=null; canHold=true; hud();
+  if(!findClear()) afterClears();
+}
+
+const full=r=>grid[r].every(Boolean);
+const mmCount=(up,down)=>grid[up].reduce((n,b,c)=>n+(ok(b,grid[down][c])?0:1),0);
+function findClear(){
+  for(let r=ROWS-1;r>=1;r--){
+    if(full(r)&&full(r-1)){ const mm=mmCount(r-1,r); if(mm<=tol()){ clearing={rows:[r-1,r],t:0,mm}; sfx('clear'); return true; } }
+  }
+  return false;
+}
+function finishClear(){
+  if(clearing.kind==='heli'){
+    const r=clearing.rows[0];
+    grid.splice(r,1); grid.unshift(emptyRow());
+    floaters.push({t:0,x:COLS/2,y:r,txt:'Helicasa: fila separada',col:'#a48bff'});
+    clearing=null; hud();
+    if(!findClear() && !grid.some(row=>row.some(Boolean))){ grid[ROWS-1]=templateRow(); }
+    return;
+  }
+  const [a]=clearing.rows, mm=clearing.mm||0;
+  floaters.push({t:0,x:COLS/2,y:a+1,txt:mm?'¡Doble hélice!':'¡Hélice perfecta!',col:mm?'#a48bff':'#ffc93c',big:true});
+  if(mm) floaters.push({t:0,x:COLS/2,y:a+1.8,txt:`con ${mm} mismatch${mm>1?'es':''}`,col:'#ff8a96'});
+  grid.splice(a,2); grid.unshift(emptyRow(),emptyRow());
+  clearing=null; helices++; fixedMm+=mm;
+  score+=100*level + (mm?0:60*level);
+  const nl=1+Math.floor(helices/3);
+  if(nl>level){ level=nl; dnaseOk=true; heliOk=true; setTimeout(()=>sfx('level'),350);
+    const t=tol(); floaters.push({t:-500,x:COLS/2,y:5,txt:`Nivel ${level}`,col:'#e8edff',big:true});
+    floaters.push({t:-500,x:COLS/2,y:5.8,txt:t?`${t} mismatch${t>1?'es':''} permitido${t>1?'s':''}`:'¡Sin mismatches!',col:'#ffc93c'}); }
+  showFact(); hud();
+  if(!findClear()) afterClears();
+}
+function afterClears(){
+  if(grid.every(row=>row.every(c=>!c))){
+    grid[ROWS-1]=templateRow();
+    floaters.push({t:0,x:COLS/2,y:ROWS-2,txt:'Nueva hebra molde',col:'#8e99c6'});
+  }
+  if(!piece) spawn();
+}
+
+function gameOver(){
+  if(over) return;
+  over=true; running=false; piece=null; stopMusic(); sfx('over');
+  lastResult={score,helices,pairs,bad}; lastEntryId=null;
+  $('shareMsg').hidden=true;
+  if(qualifies(score)){
+    $('entry').hidden=false; $('overRank').hidden=true;
+    let saved=''; try{ saved=localStorage.getItem('aparea-initials')||''; }catch(e){}
+    $('initials').value=saved;
+    setTimeout(()=>{ try{ $('initials').focus(); $('initials').select(); }catch(e){} },60);
+  } else {
+    $('entry').hidden=true; renderRank(); $('overRank').hidden=false;
+  }
+  const note = fixedMm>0
+    ? `${fixedMm} mismatch${fixedMm>1?'es quedaron':' quedó'} dentro de tus hélices. En una célula, si no se reparan, en la próxima replicación se vuelven mutaciones.`
+    : (helices>0 ? '¡Todas tus hélices fueron perfectas! Así de fiel es la replicación después de la corrección y la reparación.' : FACTS[0]);
+  $('overTxt').innerHTML=`Armaste <b>${helices}</b> dobles hélices con <b>${pairs}</b> pares de bases. Puntaje: <b>${score}</b>.<br><br><span style="color:var(--muted);font-size:13px">${note}</span>`;
+  $('overOv').hidden=false; hud();
+}
+
+function hud(){
+  const s=(id,v)=>{$(id).textContent=v};
+  s('sScore',score); s('sLevel',level); s('sHelix',helices); s('sPairs',pairs); s('sBad',bad); s('sBest',Math.max(best,score));
+  $('pDnase').classList.toggle('used',!dnaseOk); $('pHeli').classList.toggle('used',!heliOk);
+  s('sLvlSub',`nivel · ${helices%3}/3 hélices`); s('mLvlSub',`nivel ${helices%3}/3`);
+  s('mScore',score); s('mLevel',level); s('mHelix',helices); s('mTol',tol());
+  const tb=$('tolbar'); tb.textContent=''; for(let i=0;i<TOL[0];i++){ const e=document.createElement('i'); if(i>=tol()) e.className='off'; tb.appendChild(e); }
+  tb.title=`${tol()} permitidos`;
+}
+function showFact(){ $('fact').textContent=FACTS[factIdx%FACTS.length]; factIdx++; }
+
+// ---------- enzyme sprites (16x16 pixel art) ----------
+const DNASE_MAP=[
+'....oooooooo....',
+'..oobbbbbbbboo..',
+'.obhhbbbbbbbbbo.',
+'.obhbbeebbeebbo.',
+'obhbbbepbbepbbbo',
+'obbbbbbbbbbbbbbo',
+'obbbbbbbbbbbbbbo',
+'obbbbbssssbbbbbo',
+'obbbbso..osbbbbo',
+'obbbbt....tbbbbo',
+'obbbo......obbbo',
+'.obbt......tbbo.',
+'.obo........obo.',
+'..o..........o..',
+'................',
+'................'];
+const DNASE_PAL={o:'#4a0f1c',b:'#ff6b7d',h:'#ffc2ca',s:'#c23a4c',e:'#ffffff',p:'#1a0a10',t:'#ffffff'};
+function spriteFromMap(map,pal){
+  const c=document.createElement('canvas'); c.width=16; c.height=16; const g=c.getContext('2d');
+  map.forEach((row,y)=>[...row].forEach((ch,x)=>{ if(pal[ch]){ g.fillStyle=pal[ch]; g.fillRect(x,y,1,1); } }));
+  return c;
+}
+function helicaseSprite(){
+  // hexameric ring: six subunits around a central channel, with a single DNA strand threading through
+  const c=document.createElement('canvas'); c.width=16; c.height=16; const g=c.getContext('2d');
+  for(let y=0;y<16;y++) for(let x=0;x<16;x++){
+    const dx=x-7.5, dy=y-7.5, r=Math.hypot(dx,dy);
+    if(r>7.6||r<2.6) continue;
+    const a=(Math.atan2(dy,dx)+Math.PI*2+Math.PI/6)%(Math.PI*2), sec=Math.floor(a/(Math.PI/3)), fr=a/(Math.PI/3)-sec;
+    let col;
+    if(r>6.8||r<3.4||fr<0.12||fr>0.94) col='#231552';
+    else col = sec%2 ? '#7d63e6' : '#a48bff';
+    if(col!=='#231552' && dx+dy<-5.5 && r>5) col='#e0d6ff';
+    g.fillStyle=col; g.fillRect(x,y,1,1);
+  }
+  g.fillStyle='#ffc93c'; g.fillRect(7,6,2,1); g.fillStyle='#4cc9f0'; g.fillRect(7,7,2,1); g.fillStyle='#3ddc84'; g.fillRect(7,8,2,1); g.fillStyle='#ff5d73'; g.fillRect(7,9,2,1);
+  return c;
+}
+const SPR={dnase:spriteFromMap(DNASE_MAP,DNASE_PAL), heli:helicaseSprite()};
+try{ $('iDnase').src=SPR.dnase.toDataURL(); $('iHeli').src=SPR.heli.toDataURL(); }catch(e){}
+function drawSprite(g,spr,x,y,w){ g.imageSmoothingEnabled=false; g.drawImage(spr,Math.round(x),Math.round(y),Math.round(w),Math.round(w)); }
+
+// ---------- rendering ----------
+let cell=32, ox=0, gut=0, dpr=1;
+function sizeCanvas(c,g,w,h){ c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); c.style.width=w+'px'; c.style.height=h+'px'; g.setTransform(dpr,0,0,dpr,0,0); }
+function resize(){
+  dpr=window.devicePixelRatio||1;
+  const availW=Math.min(stage.clientWidth-6, 520);
+  let availH;
+  if(isMobile()){
+    const vh=(window.visualViewport?visualViewport.height:innerHeight);
+    availH=vh-$('pad').offsetHeight-$('mhud').offsetHeight-44;
+  } else availH=innerHeight*0.74;
+  availH=Math.max(300,availH);
+  cell=Math.floor(Math.min(availW/(COLS+1.3), availH/ROWS));
+  cell=Math.max(18,cell);
+  gut=Math.round(cell*0.65); ox=gut;
+  sizeCanvas(cv,ctx,COLS*cell+gut*2,ROWS*cell);
+  sizeCanvas(nv,nctx,120,100); sizeCanvas(hv,hctx,120,100);
+  sizeCanvas(mv,mctx,48,40); sizeCanvas(mhv,mhctx,48,40);
+  drawNext();
+}
+
+function block(g,x,y,s,base,alpha=1,flash=0){
+  const p=Math.max(2,Math.round(s*0.08));
+  g.globalAlpha=alpha;
+  g.fillStyle=DARK[base]; g.fillRect(x+p,y+p,s-2*p,s-2*p);
+  g.fillStyle=COL[base]; g.fillRect(x+p,y+p,s-2*p,s-3*p);
+  g.fillStyle=LIGHT[base]; g.fillRect(x+p,y+p,s-2*p,p); g.fillRect(x+p,y+p,p,s-3*p);
+  if(flash){ g.fillStyle=`rgba(255,255,255,${flash})`; g.fillRect(x+p,y+p,s-2*p,s-2*p); }
+  if(s>=14){
+    g.fillStyle='#0b1020';
+    g.font=`700 ${Math.round(s*0.5)}px Silkscreen, "Courier New", monospace`;
+    g.textAlign='center'; g.textBaseline='middle';
+    g.fillText(base,x+s/2,y+s/2+1);
+  }
+  g.globalAlpha=1;
+}
+function bonds(g,x,yseam,s,base,ok,alpha=1){
+  g.globalAlpha=alpha;
+  if(ok){
+    const n=HB[base]; const w=Math.max(2,Math.round(s*0.07)); const hgt=Math.max(4,Math.round(s*0.22));
+    g.fillStyle='#e8edff';
+    const span=s*0.5; for(let i=0;i<n;i++){ const bx=x+s/2-span/2+span*(i+0.5)/n-w/2; g.fillRect(Math.round(bx),Math.round(yseam-hgt/2),w,hgt); }
+  } else {
+    const k=Math.round(s*0.16); g.strokeStyle='#ff4d5e'; g.lineWidth=Math.max(2,s*0.08);
+    g.beginPath(); g.moveTo(x+s/2-k,yseam-k); g.lineTo(x+s/2+k,yseam+k); g.moveTo(x+s/2+k,yseam-k); g.lineTo(x+s/2-k,yseam+k); g.stroke();
+  }
+  g.globalAlpha=1;
+}
+function ghostY(){ let y=piece.y; while(!collide(piece.cells,piece.x,y+1)) y++; return y; }
+
+function draw(){
+  const Wd=COLS*cell+gut*2, Hd=ROWS*cell;
+  ctx.fillStyle='#060a16'; ctx.fillRect(0,0,Wd,Hd);
+  for(let c=0;c<COLS;c++){ ctx.fillStyle=c%2?'#0a1024':'#080d1e'; ctx.fillRect(ox+c*cell,0,cell,Hd); }
+  if(!grid) return;
+  const clearRows = clearing? clearing.rows : [];
+  const fl = clearing? Math.min(1, clearing.t/420) : 0;
+
+  ctx.font=`700 ${Math.round(cell*0.34)}px "Atkinson Hyperlegible", system-ui, sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#6f7aa8';
+  for(let r=0;r<ROWS;r++){
+    if(!grid[r].some(Boolean)) continue;
+    const L=leftEndFor(r);
+    ctx.fillText(L, gut/2, r*cell+cell/2);
+    ctx.fillText(other(L), ox+COLS*cell+gut/2, r*cell+cell/2);
+  }
+  for(let r=0;r<ROWS;r++){
+    const isClr=clearRows.includes(r);
+    const mis = full(r) && r+1<ROWS && full(r+1) && mmCount(r,r+1)>tol();
+    for(let c=0;c<COLS;c++){
+      const b=grid[r][c]; if(!b) continue;
+      if(isClr){
+        const s=cell*(1-fl*0.9); const off=(cell-s)/2;
+        const wob=Math.sin((c/COLS)*Math.PI*2 + fl*6)*cell*0.25*fl;
+        block(ctx,ox+c*cell+off,r*cell+off+wob,s,b,1-fl*0.6,0.6*(1-fl)+0.3);
+      } else block(ctx,ox+c*cell,r*cell,cell,b);
+    }
+    if(mis && !isClr){ ctx.fillStyle='rgba(255,77,94,.10)'; ctx.fillRect(ox,r*cell,COLS*cell,cell); }
+  }
+  for(let r=0;r<ROWS-1;r++){
+    if(clearRows.includes(r)&&clearRows.includes(r+1)) continue;
+    for(let c=0;c<COLS;c++){
+      const u=grid[r][c], d=grid[r+1][c];
+      if(u&&d) bonds(ctx,ox+c*cell,(r+1)*cell,cell,u,ok(u,d));
+    }
+  }
+
+  if(piece && piece.tool && !over){
+    const P=piece, gy=ghostY(), w=cell*2, isD=P.tool==='dnase', col=isD?'#ff4d5e':'#a48bff';
+    ctx.lineWidth=3; ctx.strokeStyle=col; ctx.setLineDash([5,3]);
+    if(isD) dnaseTargets(P,gy).forEach(([r,c])=>ctx.strokeRect(ox+c*cell+2,r*cell+2,cell-4,cell-4));
+    else { const r=heliRow(gy); if(grid[r].some(Boolean)){ ctx.fillStyle='rgba(164,139,255,.18)'; ctx.fillRect(ox,r*cell,COLS*cell,cell); ctx.strokeRect(ox+2,r*cell+2,COLS*cell-4,cell-4); } }
+    ctx.setLineDash([]);
+    if(gy!==P.y){ ctx.globalAlpha=.25; drawSprite(ctx,SPR[P.tool],ox+P.x*cell,gy*cell,w); ctx.globalAlpha=1; }
+    drawSprite(ctx,SPR[P.tool],ox+P.x*cell,P.y*cell,w);
+    ctx.font=`700 ${Math.round(cell*0.3)}px Silkscreen, "Courier New", monospace`; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillStyle='#060a16'; ctx.fillText(isD?'DNasa':'Helicasa',ox+P.x*cell+w/2+1,P.y*cell+w+1);
+    ctx.fillStyle=col; ctx.fillText(isD?'DNasa':'Helicasa',ox+P.x*cell+w/2,P.y*cell+w);
+  } else if(piece && !over){
+    const P=piece, gy=ghostY();
+    if(gy!==P.y){
+      ctx.lineWidth=2; ctx.setLineDash([4,3]); ctx.globalAlpha=.55;
+      P.cells.forEach(c=>{ ctx.strokeStyle=COL[c.b]; ctx.strokeRect(ox+(P.x+c.x)*cell+3,(gy+c.y)*cell+3,cell-6,cell-6); });
+      ctx.setLineDash([]); ctx.globalAlpha=1;
+    }
+    // preview of how the fragment pairs with the board where it will land
+    P.cells.forEach(c=>{
+      if(pieceAt(P.cells,c.x,c.y+1)) return;
+      const r=gy+c.y+1, col=P.x+c.x;
+      if(r<ROWS && grid[r][col]) bonds(ctx,ox+col*cell,r*cell,cell,c.b,ok(c.b,grid[r][col]),.85);
+    });
+    P.cells.forEach(c=>block(ctx,ox+(P.x+c.x)*cell,(P.y+c.y)*cell,cell,c.b));
+    P.cells.forEach(c=>{
+      const u=pieceAt(P.cells,c.x,c.y+1);
+      if(u) bonds(ctx,ox+(P.x+c.x)*cell,(P.y+c.y+1)*cell,cell,c.b,ok(c.b,u.b));
+    });
+  }
+
+  floaters=floaters.filter(f=>f.t<1100);
+  floaters.forEach(f=>{
+    if(f.t<0) return;
+    const k=f.t/1100;
+    ctx.globalAlpha=1-k;
+    ctx.font=`700 ${Math.round(cell*(f.big?0.62:0.42))}px Silkscreen, "Courier New", monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const fx=Math.min(Math.max(ox+f.x*cell, cell*2.2), Wd-cell*2.2);
+    ctx.fillStyle='#060a16'; ctx.fillText(f.txt, fx+2, f.y*cell - k*cell*1.4+2);
+    ctx.fillStyle=f.col; ctx.fillText(f.txt, fx, f.y*cell - k*cell*1.4);
+    ctx.globalAlpha=1;
+  });
+}
+
+function drawPreview(g,Wd,Hd,p,maxS,bond,alpha=1){
+  g.clearRect(0,0,Wd,Hd);
+  if(!p) return;
+  const w=W_(p.cells), h=H_(p.cells);
+  const s=Math.floor(Math.min(maxS,(Wd-8)/w,(Hd-8)/h));
+  const x0=(Wd-w*s)/2, y0=(Hd-h*s)/2;
+  p.cells.forEach(c=>block(g,x0+c.x*s,y0+c.y*s,s,c.b,alpha));
+  if(bond) p.cells.forEach(c=>{ const u=pieceAt(p.cells,c.x,c.y+1); if(u) bonds(g,x0+c.x*s,y0+(c.y+1)*s,s,c.b,ok(c.b,u.b)); });
+}
+function drawNext(){
+  drawPreview(nctx,120,100,next,30,true); drawPreview(mctx,48,40,next,13,false);
+  const a=canHold?1:.35;
+  drawPreview(hctx,120,100,held,30,true,a); drawPreview(mhctx,48,40,held,13,false,a);
+  if(!held){ hctx.fillStyle='#4a5588'; hctx.font='12px "Atkinson Hyperlegible", system-ui, sans-serif'; hctx.textAlign='center'; hctx.textBaseline='middle'; hctx.fillText('vacío',60,50); }
+}
+
+function frame(t){
+  const dt=Math.min(100,t-(lastT||t)); lastT=t;
+  if(running && !paused && !over){
+    if(clearing){ clearing.t+=dt; if(clearing.t>=420) finishClear(); }
+    else if(piece){ dropAcc+=dt; if(dropAcc>=interval()){ dropAcc=0; stepDown(); } }
+    floaters.forEach(f=>f.t+=dt);
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// ---------- audio: chiptune + 8-bit candombe drums ----------
+let ac=null, master, musicGain, sfxGain, whiteBuf, metalBuf, musicOn=true, sfxOn=true, seqTimer=null, nextTime=0, stepN=0;
+function lfsrBuffer(short){
+  // NES-style noise channel: 15-bit LFSR, "short" mode gives a metallic, pitched noise
+  const len=short?93*64:32767*2, buf=ac.createBuffer(1,len,ac.sampleRate), d=buf.getChannelData(0);
+  let reg=1;
+  for(let i=0;i<len;i++){
+    const fb=((reg&1)^((reg>>(short?6:1))&1));
+    reg=(reg>>1)|(fb<<14);
+    d[i]=(reg&1)?0.8:-0.8;
+  }
+  return buf;
+}
+function initAudio(){
+  if(ac){ if(ac.state==='suspended') ac.resume(); return; }
+  const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+  ac=new AC();
+  master=ac.createGain(); master.gain.value=.6; master.connect(ac.destination);
+  musicGain=ac.createGain(); musicGain.gain.value=musicOn?.34:0; musicGain.connect(master);
+  sfxGain=ac.createGain(); sfxGain.gain.value=sfxOn?.6:0; sfxGain.connect(master);
+  whiteBuf=lfsrBuffer(false); metalBuf=lfsrBuffer(true);
+}
+function tone(type,f,t,dur,vol,dest,f2){
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type=type; o.frequency.setValueAtTime(f,t);
+  if(f2) o.frequency.exponentialRampToValueAtTime(f2,t+dur);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(dest); o.start(t); o.stop(t+dur+0.03);
+}
+function nz(t,dur,vol,rate,dest,metal,lp){
+  const s=ac.createBufferSource(), g=ac.createGain();
+  s.buffer=metal?metalBuf:whiteBuf; s.loop=true; s.playbackRate.value=rate;
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  let n=s;
+  if(lp){ const f=ac.createBiquadFilter(); f.type='lowpass'; f.frequency.value=lp; s.connect(f); n=f; }
+  n.connect(g); g.connect(dest); s.start(t,Math.random()*0.05); s.stop(t+dur+0.02);
+}
+const midi=n=>{ const m=/^([A-G])(#?)(\d)$/.exec(n); const st={C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]]+(m[2]?1:0); return 12*(+m[3]+1)+st; };
+const hz=n=>440*Math.pow(2,(midi(n)-69)/12);
+
+// Original tune in A minor. 8 bars, eighth-note tokens: note, '-' hold, '.' rest.
+const MEL=[
+ 'E5 . A5 G5 E5 - C5 D5','F5 - E5 D5 A4 - D5 F5','E5 - D5 C5 B4 - G#4 B4','A4 - - C5 E5 - . .',
+ 'A5 - G5 F5 C5 - F5 A5','G5 - F5 E5 D5 - B4 D5','G#5 - E5 B4 D5 - C5 B4','A4 - E5 - A5 - . .'
+];
+const BASS=[['A2','E3','A2','E3'],['D3','A2','D3','A2'],['E2','B2','E2','G#2'],['A2','E3','A2','C3'],
+            ['F2','C3','F2','C3'],['G2','D3','G2','B2'],['E2','B2','E2','B2'],['A2','E3','A2','E2']];
+// Drums, 16 steps per bar. 2 = open/accented hit, 1 = soft hit.
+const MADERA=[2,0,1,0, 2,0,0,1, 0,2,0,0, 1,0,0,0];
+const CHICO =[0,2,1,0, 0,2,1,0, 0,2,1,0, 0,2,1,0];
+const PIANO =[2,0,0,1, 0,0,2,0, 2,0,0,1, 0,0,2,0];
+const PIANO_B=[2,0,0,1, 0,0,2,0, 0,1,2,0, 2,0,0,0];
+const REPIQ=[
+  [0,0,0,0, 0,0,0,0, 0,0,0,2, 0,1,2,0],
+  [0,0,1,0, 2,0,0,1, 0,0,2,0, 1,0,2,0],
+  [2,0,0,1, 0,1,2,0, 0,0,0,2, 0,2,0,1],
+  [2,1,2,1, 2,1,2,1, 2,2,1,2, 2,2,2,2], // repique fill (llamada)
+];
+const melEvents={};
+MEL.forEach((bar,bi)=>{
+  const tk=bar.split(' ');
+  tk.forEach((tok,i)=>{
+    if(tok==='-'||tok==='.') return;
+    let len=1; while(tk[i+len]==='-') len++;
+    melEvents[bi*16+i*2]={f:hz(tok),steps:len*2};
+  });
+});
+const bpm=()=>Math.min(150, 108+level*5);
+function drums(bar,s,t){
+  const M=musicGain;
+  // piano: deep 8-bit drum (triangle pitch drop + low noise)
+  const pp=(bar%2?PIANO_B:PIANO)[s];
+  if(pp){ tone('triangle',pp===2?170:130,t,pp===2?.24:.14,pp===2?.75:.4,M,42); nz(t,.05,pp===2?.12:.05,.35,M,false,900); }
+  // chico: tight high drum, the steady pulse
+  const ch=CHICO[s];
+  if(ch){ nz(t,.045,ch===2?.20:.11,1.6,M,true); tone('square',ch===2?880:760,t,.03,.05,M,520); }
+  // repique: mid drum, calls and fills
+  const rp=(bar%4===3)?REPIQ[3][s]:REPIQ[bar%3][s];
+  if(rp){ nz(t,rp===2?.09:.05,rp===2?.26:.14,.9,M,true); tone('square',rp===2?420:360,t,.05,.06,M,260); }
+  // madera: stick on the drum shell
+  const md=MADERA[s];
+  if(md) nz(t,.02,md===2?.22:.12,2.8,M,false);
+}
+function schedStep(st,t){
+  const spb=60/bpm()/4;
+  if(st<0){ // intro: drums only
+    const k=st+32, bar=k<16?0:3, s=k%16; drums(bar,s,t); return;
+  }
+  const bar=Math.floor(st/16), s=st%16;
+  const ev=melEvents[st];
+  if(ev){ tone('square',ev.f,t,ev.steps*spb*0.92,.065,musicGain); tone('square',ev.f*1.004,t,ev.steps*spb*0.9,.02,musicGain); }
+  if(s%4===0){ tone('triangle',hz(BASS[bar][s/4]),t,spb*3.6,.26,musicGain); }
+  drums(bar,s,t);
+}
+function startMusic(fromIntro){
+  if(!ac||seqTimer) return;
+  if(fromIntro) stepN=-32;
+  nextTime=ac.currentTime+0.06;
+  seqTimer=setInterval(()=>{
+    while(nextTime<ac.currentTime+0.12){
+      schedStep(stepN,nextTime); nextTime+=60/bpm()/4;
+      stepN++; if(stepN>=128) stepN=0;
+    }
+  },25);
+}
+function stopMusic(){ if(seqTimer){ clearInterval(seqTimer); seqTimer=null; } }
+
+function sfx(k){
+  if(!ac||!sfxOn) return; const t=ac.currentTime+0.005, G=sfxGain;
+  switch(k){
+    case 'move': tone('square',660,t,.03,.05,G); break;
+    case 'power': ['C5','E5','G5','C6'].forEach((n,i)=>tone('square',hz(n),t+i*.04,.08,.07,G)); break;
+    case 'cut': nz(t,.25,.3,.6,G,false); tone('sawtooth',900,t,.2,.08,G,120); break;
+    case 'unzip': for(let i=0;i<8;i++) tone('square',400+i*90,t+i*.035,.04,.06,G); break;
+    case 'hold': tone('square',520,t,.06,.07,G,390); tone('square',780,t+.06,.07,.07,G,1040); break;
+    case 'rot': tone('square',700,t,.07,.07,G,1400); break;
+    case 'land': tone('triangle',300,t,.06,.2,G,200); break;
+    case 'good': tone('square',784,t,.07,.08,G); tone('square',1175,t+.06,.09,.08,G); break;
+    case 'bad': tone('sawtooth',180,t,.25,.14,G,80); break;
+    case 'clear': ['A5','C6','E6','A6'].forEach((n,i)=>tone('square',hz(n),t+i*.06,.1,.09,G)); nz(t,.3,.1,1.2,G,true); break;
+    case 'level': ['E5','G#5','B5','E6','G#6'].forEach((n,i)=>tone('square',hz(n),t+i*.07,.12,.08,G)); break;
+    case 'over': ['E5','C5','A4','E4'].forEach((n,i)=>tone('square',hz(n),t+i*.18,.22,.09,G)); break;
+  }
+}
+
+// ---------- controls ----------
+function begin(){
+  initAudio(); newGame(); running=true; paused=false;
+  $('startOv').hidden=true; $('overOv').hidden=true; $('pauseOv').hidden=true;
+  stopMusic(); startMusic(true);
+  if(isMobile()){ resize(); stage.scrollIntoView({block:'start'}); }
+}
+function setPause(p){
+  if(!running||over) return;
+  paused=p; $('pauseOv').hidden=!p;
+  if(p) stopMusic(); else { initAudio(); startMusic(false); }
+}
+$('startBtn').onclick=begin;
+$('againBtn').onclick=begin;
+$('initials').addEventListener('input',e=>{ const v=e.target.value.toUpperCase().replace(/[^A-ZÑ0-9]/g,'').slice(0,3); if(v!==e.target.value) e.target.value=v; });
+$('entry').addEventListener('submit',e=>{
+  e.preventDefault(); if(!lastResult) return;
+  const name=($('initials').value||'???').toUpperCase().padEnd(3,'·');
+  try{ localStorage.setItem('aparea-initials',$('initials').value); }catch(err){}
+  addEntry(name,lastResult); sfx('level');
+  $('entry').hidden=true; $('overRank').hidden=false; $('againBtn').focus();
+});
+function shareText(){
+  const r=lastResult||{score:0,helices:0,bad:0};
+  const pos=lastEntryId? top10.findIndex(e=>e.id===lastEntryId)+1 : 0;
+  return `Hice ${r.score} puntos en Apareá cerrando ${r.helices} dobles hélices de ADN (A con T, G con C) con ${r.bad} mismatches`+
+    (pos?`, puesto ${pos} del ranking`:'')+`. ¿Me superás?`+(GAME_URL?` ${GAME_URL}`:'');
+}
+$('shareBtn').onclick=async()=>{
+  const txt=shareText(), msg=$('shareMsg');
+  try{
+    await navigator.clipboard.writeText(txt);
+    msg.textContent='Copiado. Pegalo en WhatsApp, Instagram o donde quieras.'; msg.hidden=false;
+  }catch(err){
+    msg.textContent='Copiá este texto:';
+    const ta=document.createElement('textarea'); ta.rows=4; ta.readOnly=true; ta.value=txt;
+    msg.appendChild(ta); msg.hidden=false; ta.focus(); ta.select();
+  }
+};
+let clearArmed=null;
+$('clearRank').onclick=()=>{
+  const b=$('clearRank');
+  if(!clearArmed){ b.textContent='¿Seguro? Tocá de nuevo para borrar'; b.classList.add('warn'); clearArmed=setTimeout(()=>{ clearArmed=null; b.textContent='Borrar récords'; b.classList.remove('warn'); },3000); return; }
+  clearTimeout(clearArmed); clearArmed=null; b.textContent='Borrar récords'; b.classList.remove('warn');
+  top10=[]; best=0; lastEntryId=null; saveTop(); renderRank(); hud();
+};
+renderRank();
+$('resumeBtn').onclick=()=>setPause(false);
+$('mPause').onclick=()=>setPause(!paused);
+
+function toggleMusic(){ musicOn=!musicOn; $('musicBtn').setAttribute('aria-pressed',musicOn); if(ac) musicGain.gain.value=musicOn?.34:0; }
+$('musicBtn').onclick=toggleMusic;
+$('sfxBtn').onclick=()=>{ sfxOn=!sfxOn; $('sfxBtn').setAttribute('aria-pressed',sfxOn); if(ac) sfxGain.gain.value=sfxOn?.6:0; };
+
+const playing=()=>running&&!paused&&!over;
+const act={left:()=>move(-1),right:()=>move(1),rot:rotate,down:soft,drop:hard,hold:holdPiece,dnase:useDnase,heli:useHeli};
+document.addEventListener('keydown',e=>{
+  if(!running||over) return;
+  const k=e.code; let used=true;
+  if(k==='KeyP'||k==='Escape') setPause(!paused);
+  else if(k==='KeyM') toggleMusic();
+  else if(paused) used=false;
+  else if(k==='ArrowLeft') move(-1);
+  else if(k==='ArrowRight') move(1);
+  else if(k==='ArrowDown') soft();
+  else if(k==='ArrowUp'||k==='KeyX'||k==='KeyZ') rotate();
+  else if(k==='KeyD'||k==='Digit1') useDnase();
+  else if(k==='KeyE'||k==='Digit2') useHeli();
+  else if(k==='KeyC'||k==='KeyO'||k==='KeyH'||k==='ShiftLeft'||k==='ShiftRight'||/^[coh]$/i.test(e.key)) holdPiece();
+  else if(k==='Space') { if(!e.repeat) hard(); }
+  else used=false;
+  if(used) e.preventDefault();
+});
+document.querySelectorAll('#pad button').forEach(btn=>{
+  const a=btn.dataset.a; let tmr=null, rep=null;
+  const stop=()=>{ clearTimeout(tmr); clearInterval(rep); tmr=rep=null; };
+  btn.addEventListener('pointerdown',e=>{
+    e.preventDefault(); if(!playing()) return;
+    act[a]();
+    if(a==='left'||a==='right'||a==='down'){ tmr=setTimeout(()=>{ rep=setInterval(act[a],85); },210); }
+  });
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,stop));
+  btn.addEventListener('contextmenu',e=>e.preventDefault());
+});
+
+// Touch gestures on the board: drag sideways to move, tap to rotate, drag down to lower, flick down to drop.
+let tp=null;
+cv.addEventListener('pointerdown',e=>{
+  if(!playing()) return;
+  cv.setPointerCapture(e.pointerId);
+  tp={x0:e.clientX,y0:e.clientY,ax:e.clientX,ay:e.clientY,t0:performance.now(),moved:false};
+});
+cv.addEventListener('pointermove',e=>{
+  if(!tp||!playing()) return;
+  const step=cell*0.8;
+  while(e.clientX-tp.ax>step){ move(1); tp.ax+=step; tp.moved=true; }
+  while(tp.ax-e.clientX>step){ move(-1); tp.ax-=step; tp.moved=true; }
+  while(e.clientY-tp.ay>cell){ soft(); tp.ay+=cell; tp.moved=true; }
+});
+cv.addEventListener('pointerup',e=>{
+  if(!tp) return;
+  const dt=performance.now()-tp.t0, dx=e.clientX-tp.x0, dy=e.clientY-tp.y0;
+  if(playing()){
+    if(dy>cell*1.5 && dt<260 && Math.abs(dy)>Math.abs(dx)*1.5) hard();
+    else if(-dy>cell*1.5 && dt<320 && Math.abs(dy)>Math.abs(dx)*1.5) holdPiece();
+    else if(!tp.moved && Math.abs(dx)<10 && Math.abs(dy)<10 && dt<300) rotate();
+  }
+  tp=null;
+});
+cv.addEventListener('pointercancel',()=>{tp=null;});
+
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) setPause(true); });
+window.addEventListener('resize',resize);
+if(window.visualViewport) visualViewport.addEventListener('resize',resize);
+
+// idle board behind the start screen
+grid=[]; for(let r=0;r<ROWS;r++) grid.push(emptyRow());
+grid[ROWS-1]=['A','T','G','C','C','A','T','G'];
+grid[ROWS-2]=['T','A','C','G',null,null,'A',null];
+grid[ROWS-3]=[null,null,'G',null,null,null,null,null];
+level=1; score=0; helices=0; pairs=0; bad=0; next=makePiece(); hud();
+$('fact').textContent=FACTS[0]; factIdx=1;
+resize();
+(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(resize);
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
